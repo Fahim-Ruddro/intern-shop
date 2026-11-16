@@ -1,5 +1,24 @@
+import { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { getProductBySlug, getRelatedProducts } from '@/lib/data/products'
+
+export async function generateMetadata({ 
+  params 
+}: { 
+  params: Promise<{ slug: string }> 
+}): Promise<Metadata> {
+  const resolvedParams = await params
+  const product = await getProductBySlug(resolvedParams.slug)
+  
+  if (!product) {
+    return { title: 'Product Not Found | Intern Shop' }
+  }
+
+  return {
+    title: `${product.name} | Intern Shop`,
+    description: product.description,
+  }
+}
 
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
   // Wait for the URL parameters to load
