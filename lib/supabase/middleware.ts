@@ -33,8 +33,8 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname, search } = request.nextUrl
 
-  // Protect /account (and any sub-routes) from logged-out users
-  if (!user && pathname.startsWith('/account')) {
+  // Protect /account and /checkout (and any sub-routes) from logged-out users
+  if (!user && (pathname.startsWith('/account') || pathname.startsWith('/checkout'))) {
     const loginUrl = request.nextUrl.clone()
     loginUrl.pathname = '/login'
     loginUrl.searchParams.set('next', `${pathname}${search}`)

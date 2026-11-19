@@ -2,6 +2,7 @@ import Image from 'next/image'
 import { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { getProductBySlug, getRelatedProducts } from '@/lib/data/products'
+import AddToCartButton from '@/components/AddToCartButton'
 
 export async function generateMetadata({ 
   params 
@@ -81,12 +82,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
             {product.description}
           </p>
           
-          <button 
-            disabled={product.stock <= 0}
-            className="bg-black text-white px-8 py-4 rounded-lg font-semibold hover:bg-gray-800 transition-colors w-full md:w-auto disabled:bg-gray-300 disabled:cursor-not-allowed"
-          >
-            {product.stock <= 0 ? 'Out of Stock' : 'Add to Cart'}
-          </button>
+          <AddToCartButton product={product} />
         </div>
       </div>
 

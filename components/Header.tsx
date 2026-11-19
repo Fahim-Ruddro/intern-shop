@@ -3,6 +3,7 @@ import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import SearchInput from './SearchInput'
 import AccountMenu from './AccountMenu'
+import CartBadge from './CartBadge'
 
 export default async function Header() {
   const supabase = await createClient()
@@ -19,15 +20,24 @@ export default async function Header() {
         </Link>
 
         {/* Debounced Search Box */}
-        <Suspense fallback={<div className="w-full max-w-md h-9 bg-gray-100 dark:bg-gray-900 rounded-lg" />}>
+        <Suspense
+          fallback={
+            <div className="w-full max-w-md h-9 bg-gray-100 dark:bg-gray-900 rounded-lg" />
+          }
+        >
           <SearchInput />
         </Suspense>
 
-        {/* Navigation & Auth Actions */}
-        <nav className="flex items-center gap-4 shrink-0 text-sm">
-          <Link href="/search" className="hidden sm:inline hover:text-blue-600 transition-colors">
+        {/* Navigation, Cart & Auth Actions */}
+        <nav className="flex items-center gap-3 shrink-0 text-sm">
+          <Link
+            href="/search"
+            className="hidden sm:inline hover:text-blue-600 transition-colors"
+          >
             Shop
           </Link>
+
+          <CartBadge />
 
           {user ? (
             <AccountMenu
