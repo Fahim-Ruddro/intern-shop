@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { useCart } from '@/context/CartContext'
 
@@ -64,9 +65,11 @@ export default function CartPage() {
               >
                 <div className="flex items-center gap-4">
                   {imageUrl ? (
-                    <img
+                    <Image
                       src={imageUrl}
                       alt={item.name}
+                      width={80}
+                      height={80}
                       className="w-20 h-20 object-cover rounded-lg bg-gray-100 dark:bg-gray-900 shrink-0"
                     />
                   ) : (
@@ -97,7 +100,7 @@ export default function CartPage() {
                     <button
                       type="button"
                       onClick={() => updateQuantity(item.product_id, item.quantity - 1)}
-                      aria-label="Decrease quantity"
+                      aria-label={`Decrease quantity of ${item.name}`}
                       className="px-3 py-1.5 text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-900 rounded-l-lg"
                     >
                       −
@@ -109,7 +112,7 @@ export default function CartPage() {
                       type="button"
                       onClick={() => updateQuantity(item.product_id, item.quantity + 1)}
                       disabled={atMaxStock}
-                      aria-label="Increase quantity"
+                      aria-label={`Increase quantity of ${item.name}`}
                       className="px-3 py-1.5 text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-900 rounded-r-lg disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       +
@@ -124,6 +127,7 @@ export default function CartPage() {
                     <button
                       type="button"
                       onClick={() => removeItem(item.product_id)}
+                      aria-label={`Remove ${item.name} from cart`}
                       className="text-xs text-red-600 hover:underline mt-1"
                     >
                       Remove

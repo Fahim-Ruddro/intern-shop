@@ -38,7 +38,7 @@ export default async function SearchPage({
         <h1 className="text-3xl font-bold">
           {resolvedParams.q ? `Results for "${resolvedParams.q}"` : 'Browse Products'}
         </h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
           Showing {products.length} of {totalCount} {totalCount === 1 ? 'product' : 'products'}
         </p>
       </div>
@@ -54,10 +54,9 @@ export default async function SearchPage({
         {/* Results Area */}
         <div className="lg:col-span-3">
           {products.length === 0 ? (
-            /* Empty State */
             <div className="text-center py-20 border border-dashed border-gray-300 dark:border-gray-800 rounded-xl px-4">
               <h2 className="text-xl font-semibold mb-2">No matching products found</h2>
-              <p className="text-gray-500 max-w-md mx-auto mb-6">
+              <p className="text-gray-600 dark:text-gray-400 max-w-md mx-auto mb-6">
                 Try adjusting your search keywords, price range, or clearing active filters to see more items.
               </p>
               <Link
@@ -69,7 +68,6 @@ export default async function SearchPage({
             </div>
           ) : (
             <>
-              {/* Product Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
                 {products.map((product) => {
                   const imageUrl = `${supabaseUrl}/storage/v1/object/public/product-images/${product.image}`
@@ -86,8 +84,10 @@ export default async function SearchPage({
                           />
                         )}
                       </div>
-                      <p className="text-xs text-gray-500 uppercase">{product.category?.name}</p>
-                      <h2 className="font-medium group-hover:text-blue-600 transition-colors">
+                      <p className="text-xs text-gray-600 dark:text-gray-400 uppercase">
+                        {product.category?.name}
+                      </p>
+                      <h2 className="font-medium group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                         {product.name}
                       </h2>
                       <div className="flex items-center justify-between mt-1">
@@ -95,9 +95,11 @@ export default async function SearchPage({
                           ${(product.price / 100).toFixed(2)}
                         </p>
                         {product.stock <= 0 ? (
-                          <span className="text-xs text-red-600 font-medium">Out of stock</span>
+                          <span className="text-xs text-red-600 dark:text-red-400 font-medium">
+                            Out of stock
+                          </span>
                         ) : product.stock <= 5 ? (
-                          <span className="text-xs text-orange-600 font-medium">
+                          <span className="text-xs text-orange-600 dark:text-orange-400 font-medium">
                             Only {product.stock} left
                           </span>
                         ) : null}
@@ -107,7 +109,6 @@ export default async function SearchPage({
                 })}
               </div>
 
-              {/* Pagination */}
               {totalPages > 1 && (
                 <div className="mt-12 flex items-center justify-center gap-2">
                   {currentPage > 1 && (
@@ -119,7 +120,7 @@ export default async function SearchPage({
                     </Link>
                   )}
 
-                  <span className="px-4 py-2 text-sm text-gray-500">
+                  <span className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">
                     Page {currentPage} of {totalPages}
                   </span>
 

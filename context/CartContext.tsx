@@ -16,82 +16,13 @@ import {
   syncCartItemToDb,
   clearDbCart,
 } from '@/app/cart/actions'
+import {
+  cartReducer,
+  calculateTotalItems,
+  calculateSubtotalCents,
+} from '@/lib/cart'
 
 const GUEST_CART_KEY = 'intern_shop_guest_cart'
-
-type CartState = {
-  items: CartItem[]
-  isLoaded: boolean
-}
-
-type CartAction =
-  | { type: 'SET_CART'; payload: CartItem[] }
-  | { type: 'ADD_ITEM'; payload: Omit<CartItem, 'quantity'> & { quantity?: number } }
-  | { type: 'UPDATE_QUANTITY'; payload: { product_id: string; quantity: number } }
-  | { type: 'REMOVE_ITEM'; payload: { product_id: string } }
-  | { type: 'CLEAR_CART' }
-
-function cartReducer(state: CartState, action: CartAction): CartState {
-  switch (action.type) {
-    case 'SET_CART':
-      return { items: action.payload, isLoaded: true }
-
-    case 'ADD_ITEM': {
-      const { quantity = 1, ...product } = action.payload
-      if (product.stock <= 0) return state
-
-      const existing = state.items.find((i) => i.product_id === product.product_id)
-      if (existing) {
-        const nextQty = Math.min(existing.quantity + quantity, product.stock)
-        return {
-          ...state,
-          items: state.items.map((i) =>
-            i.product_id === product.product_id
-              ? { ...i, stock: product.stock, price: product.price, quantity: nextQty }
-              : i
-          ),
-        }
-      }
-
-      const initialQty = Math.min(Math.max(1, quantity), product.stock)
-      return {
-        ...state,
-        items: [...state.items, { ...product, quantity: initialQty }],
-      }
-    }
-
-    case 'UPDATE_QUANTITY': {
-      const { product_id, quantity } = action.payload
-      if (quantity <= 0) {
-        return {
-          ...state,
-          items: state.items.filter((i) => i.product_id !== product_id),
-        }
-      }
-
-      return {
-        ...state,
-        items: state.items.map((i) =>
-          i.product_id === product_id
-            ? { ...i, quantity: Math.min(quantity, i.stock) }
-            : i
-        ),
-      }
-    }
-
-    case 'REMOVE_ITEM':
-      return {
-        ...state,
-        items: state.items.filter((i) => i.product_id !== action.payload.product_id),
-      }
-
-    case 'CLEAR_CART':
-      return { ...state, items: [] }
-
-    default:
-      return state
-  }
-}
 
 type CartContextValue = {
   items: CartItem[]
@@ -149,11 +80,14 @@ export function CartProvider({
     isLoaded: false,
   })
   const [userId, setUserId] = useState<string | null>(initialUserId)
+  const [prevInitialUserId, setPrevInitialUserId] = useState<string | null>(
+    initialUserId
+  )
 
-  // Keep userId synchronized with server prop & auth state changes
-  useEffect(() => {
+  if (initialUserId !== prevInitialUserId) {
+    setPrevInitialUserId(initialUserId)
     setUserId(initialUserId)
-  }, [initialUserId])
+  }
 
   useEffect(() => {
     const supabase = createClient()
@@ -166,7 +100,6 @@ export function CartProvider({
     return () => subscription.unsubscribe()
   }, [])
 
-  // Load cart when auth state is known, merging guest localStorage cart on login
   useEffect(() => {
     let active = true
 
@@ -198,7 +131,6 @@ export function CartProvider({
     }
   }, [userId])
 
-  // Persist guest cart to localStorage whenever guest items change
   useEffect(() => {
     if (!state.isLoaded || userId) return
     writeGuestCart(state.items)
@@ -207,8 +139,13 @@ export function CartProvider({
   const addItem = useCallback(
     (product: Omit<CartItem, 'quantity'>, quantity = 1) => {
       if (product.stock <= 0) return
-      const existing = state.items.find((i) => i.product_id === product.product_id)
-      const nextQty = Math.min((existing?.quantity ?? 0) + quantity, product.stock)
+      const existing = state.items.find(
+        (i) => i.product_id === product.product_id
+      )
+      const nextQty = Math.min(
+        (existing?.quantity ?? 0) + quantity,
+        product.stock
+      )
 
       dispatch({ type: 'ADD_ITEM', payload: { ...product, quantity } })
 
@@ -256,11 +193,8 @@ export function CartProvider({
     }
   }, [userId])
 
-  const totalItems = state.items.reduce((sum, item) => sum + item.quantity, 0)
-  const subtotal = state.items.reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0
-  )
+  const totalItems = calculateTotalItems(state.items)
+  const subtotal = calculateSubtotalCents(state.items)
 
   return (
     <CartContext.Provider

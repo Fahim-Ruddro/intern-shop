@@ -22,9 +22,17 @@ export default async function RootLayout({
   return (
     <html lang="en">
       <body className="min-h-screen flex flex-col bg-white dark:bg-black text-gray-900 dark:text-gray-100 antialiased">
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:px-4 focus:py-2 focus:rounded-lg focus:bg-black focus:text-white dark:focus:bg-white dark:focus:text-black focus:font-medium"
+        >
+          Skip to main content
+        </a>
         <CartProvider initialUserId={user?.id ?? null}>
           <Header />
-          <main className="flex-1">{children}</main>
+          <main id="main-content" className="flex-1">
+            {children}
+          </main>
         </CartProvider>
       </body>
     </html>

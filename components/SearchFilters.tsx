@@ -30,24 +30,36 @@ function PriceRangeInputs({
       className="space-y-2"
     >
       <div className="flex items-center gap-2">
+        <label htmlFor="filter-min-price" className="sr-only">
+          Minimum price in dollars
+        </label>
         <input
+          id="filter-min-price"
           type="number"
           min="0"
           step="1"
+          aria-label="Minimum price in dollars"
           placeholder="Min $"
           value={min}
           onChange={(e) => setMin(e.target.value)}
-          className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-transparent"
+          className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-transparent focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white"
         />
-        <span className="text-gray-400">–</span>
+        <span className="text-gray-400" aria-hidden="true">
+          –
+        </span>
+        <label htmlFor="filter-max-price" className="sr-only">
+          Maximum price in dollars
+        </label>
         <input
+          id="filter-max-price"
           type="number"
           min="0"
           step="1"
+          aria-label="Maximum price in dollars"
           placeholder="Max $"
           value={max}
           onChange={(e) => setMax(e.target.value)}
-          className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-transparent"
+          className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-transparent focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white"
         />
       </div>
       <button
@@ -81,7 +93,6 @@ export default function SearchFilters({ categories }: { categories: Category[] }
       }
     })
 
-    // Reset to page 1 whenever filters or sort order change
     params.delete('page')
 
     const queryString = params.toString()
@@ -101,14 +112,14 @@ export default function SearchFilters({ categories }: { categories: Category[] }
     activeSort !== 'newest'
 
   return (
-    <aside className="space-y-6">
+    <aside aria-label="Product filters" className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="font-bold text-lg">Filters</h2>
         {hasActiveFilters && (
           <button
             type="button"
             onClick={clearAll}
-            className="text-xs text-blue-600 hover:underline"
+            className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
           >
             Reset all
           </button>
@@ -123,7 +134,9 @@ export default function SearchFilters({ categories }: { categories: Category[] }
         <select
           id="sort"
           value={activeSort}
-          onChange={(e) => updateParams({ sort: e.target.value === 'newest' ? null : e.target.value })}
+          onChange={(e) =>
+            updateParams({ sort: e.target.value === 'newest' ? null : e.target.value })
+          }
           className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-black"
         >
           <option value="newest">Newest Arrivals</option>
@@ -170,8 +183,12 @@ export default function SearchFilters({ categories }: { categories: Category[] }
 
       {/* In-Stock Only */}
       <div className="pt-1">
-        <label className="flex items-center gap-2.5 text-sm cursor-pointer">
+        <label
+          htmlFor="filter-in-stock"
+          className="flex items-center gap-2.5 text-sm cursor-pointer"
+        >
           <input
+            id="filter-in-stock"
             type="checkbox"
             checked={activeInStock}
             onChange={(e) => updateParams({ inStock: e.target.checked ? 'true' : null })}

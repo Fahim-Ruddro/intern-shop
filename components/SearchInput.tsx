@@ -13,12 +13,10 @@ export default function SearchInput() {
   const [isFocused, setIsFocused] = useState(false)
   const isFirstRender = useRef(true)
 
-  // Sync URL -> input only when the user isn't actively focused on the input
   if (!isFocused && query !== urlQuery) {
     setQuery(urlQuery)
   }
 
-  // Debounce navigation by 500ms after the user stops typing
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false
@@ -48,15 +46,20 @@ export default function SearchInput() {
   }, [query, urlQuery, pathname, router])
 
   return (
-    <div className="relative w-full max-w-md">
+    <div className="relative w-full max-w-md" role="search">
+      <label htmlFor="header-search-input" className="sr-only">
+        Search products
+      </label>
       <input
+        id="header-search-input"
         type="search"
+        aria-label="Search products"
         value={query}
         onFocus={() => setIsFocused(true)}
         onBlur={() => setIsFocused(false)}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search products..."
-        className="w-full px-4 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-transparent focus:outline-none focus:border-black dark:focus:border-white"
+        className="w-full px-4 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-transparent focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white"
       />
     </div>
   )
