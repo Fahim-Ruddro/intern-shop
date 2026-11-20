@@ -50,6 +50,14 @@ export default function AccountMenu({
             Account Settings
           </Link>
 
+          <Link
+            href="/account/orders"
+            onClick={() => setOpen(false)}
+            className="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
+          >
+            My Orders
+          </Link>
+
           <form action={logout}>
             <button
               type="submit"

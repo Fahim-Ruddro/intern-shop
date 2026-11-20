@@ -33,12 +33,33 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname, search } = request.nextUrl
 
-  // Protect /account and /checkout (and any sub-routes) from logged-out users
-  if (!user && (pathname.startsWith('/account') || pathname.startsWith('/checkout'))) {
+  // 1. Protect /account, /checkout, and /admin from logged-out users
+  if (
+    !user &&
+    (pathname.startsWith('/account') ||
+      pathname.startsWith('/checkout') ||
+      pathname.startsWith('/admin'))
+  ) {
     const loginUrl = request.nextUrl.clone()
     loginUrl.pathname = '/login'
     loginUrl.searchParams.set('next', `${pathname}${search}`)
     return NextResponse.redirect(loginUrl)
+  }
+
+  // 2. Protect /admin from authenticated non-admin users at the edge
+  if (user && pathname.startsWith('/admin')) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    if (profile?.role !== 'admin') {
+      const homeUrl = request.nextUrl.clone()
+      homeUrl.pathname = '/'
+      homeUrl.search = ''
+      return NextResponse.redirect(homeUrl)
+    }
   }
 
   return supabaseResponse
