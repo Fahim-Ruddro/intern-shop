@@ -34,21 +34,17 @@ export default async function CheckoutSuccessPage({
     ) {
       isPaid = true
       amountTotal = session.amount_total ?? 0
-
-      if (session.metadata?.order_id) {
-        await supabase
-          .from('orders')
-          .update({ status: 'paid' })
-          .eq('id', session.metadata.order_id)
-          .eq('user_id', user.id)
-      }
-
-      // Clear persisted DB cart once payment succeeds
-      await supabase.from('cart_items').delete().eq('user_id', user.id)
     }
   } catch (err) {
     console.error('Error verifying Stripe session:', err)
   }
+
+  // Look up the order created by the Stripe webhook (RLS restricts to user_id = auth.uid())
+  const { data: order } = await supabase
+    .from('orders')
+    .select('id, status')
+    .eq('stripe_session_id', session_id)
+    .maybeSingle()
 
   return (
     <div className="container mx-auto px-4 py-20 max-w-lg text-center space-y-5">
@@ -76,10 +72,16 @@ export default async function CheckoutSuccessPage({
         </>
       )}
 
-      <div className="pt-2">
+      <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+        <Link
+          href={order ? `/account/orders/${order.id}` : '/account/orders'}
+          className="px-6 py-2.5 bg-black dark:bg-white text-white dark:text-black rounded-lg font-medium hover:opacity-90 transition-opacity"
+        >
+          View Order Details
+        </Link>
         <Link
           href="/search"
-          className="inline-block px-6 py-2.5 bg-black dark:bg-white text-white dark:text-black rounded-lg font-medium hover:opacity-90 transition-opacity"
+          className="px-6 py-2.5 border border-gray-300 dark:border-gray-700 rounded-lg font-medium hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
         >
           Continue Shopping
         </Link>

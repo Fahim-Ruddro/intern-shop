@@ -75,7 +75,7 @@ export async function signup(
     options: {
       data: {
         full_name: parsed.data.full_name,
-        phone: parsed.data.phone || null,
+        phone: parsed.data.phone || '',
       },
     },
   })
@@ -179,7 +179,7 @@ export async function updateProfile(
     .from('profiles')
     .update({
       full_name: parsed.data.full_name,
-      phone: parsed.data.phone || null,
+      phone: parsed.data.phone || '',
     })
     .eq('id', user.id)
 

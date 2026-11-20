@@ -60,8 +60,7 @@ export async function createCheckoutSession(
         id,
         name,
         price,
-        stock,
-        image
+        stock
       )
     `
     )
@@ -96,15 +95,7 @@ export async function createCheckoutSession(
     })
   }
 
-  // 3. Calculate subtotal & total strictly on the server from DB prices
-  const subtotal = verifiedItems.reduce(
-    (sum, item) => sum + item.unit_price * item.quantity,
-    0
-  )
-  const deliveryCharge = FIXED_DELIVERY_CHARGE_CENTS
-  const total = subtotal + deliveryCharge
-
-  // 4. Save address to `addresses` table (RLS enforces user_id = auth.uid())
+  // 3. Save address to `addresses` table (RLS enforces user_id = auth.uid())
   const { data: savedAddress, error: addressError } = await supabase
     .from('addresses')
     .insert({
@@ -122,53 +113,25 @@ export async function createCheckoutSession(
     return { error: 'Failed to save delivery address. Please try again.' }
   }
 
-  // 5. Create pending order & order_items in database
-  const { data: order, error: orderError } = await supabase
-    .from('orders')
-    .insert({
-      user_id: user.id,
-      address_id: savedAddress.id,
-      status: 'pending',
-      subtotal,
-      delivery_charge: deliveryCharge,
-      total,
-    })
-    .select('id')
-    .single()
+  const deliveryCharge = FIXED_DELIVERY_CHARGE_CENTS
 
-  if (orderError || !order) {
-    return { error: 'Could not initialize your order. Please try again.' }
-  }
-
-  const { error: orderItemsError } = await supabase.from('order_items').insert(
-    verifiedItems.map((item) => ({
-      order_id: order.id,
-      product_id: item.product_id,
-      quantity: item.quantity,
-      unit_price: item.unit_price,
-    }))
-  )
-
-  if (orderItemsError) {
-    return { error: 'Failed to record order items. Please try again.' }
-  }
-
-  // 6. Determine origin URL for Stripe success & cancel redirects
+  // 4. Determine origin URL for Stripe success & cancel redirects
   const headersList = await headers()
   const origin =
     headersList.get('origin') ||
     process.env.NEXT_PUBLIC_SITE_URL ||
     'http://localhost:3000'
 
-  // 7. Create Stripe Checkout Session in test mode
+  // 5. Create Stripe Checkout Session (order is created atomically in webhook upon payment)
   let checkoutUrl: string | null = null
   try {
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       customer_email: user.email,
       metadata: {
-        order_id: order.id,
         user_id: user.id,
+        address_id: savedAddress.id,
+        delivery_charge: String(deliveryCharge),
       },
       line_items: [
         ...verifiedItems.map((item) => ({
@@ -193,13 +156,8 @@ export async function createCheckoutSession(
         },
       ],
       success_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/checkout/cancel?order_id=${order.id}`,
+      cancel_url: `${origin}/checkout/cancel`,
     })
-
-    await supabase
-      .from('orders')
-      .update({ stripe_session_id: session.id })
-      .eq('id', order.id)
 
     checkoutUrl = session.url
   } catch (err) {
