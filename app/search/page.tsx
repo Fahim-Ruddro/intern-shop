@@ -1,8 +1,10 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { Suspense } from 'react'
+import { createClient } from '@/lib/supabase/server'
 import { getCategories, searchProducts, SearchParamsInput } from '@/lib/data/products'
 import SearchFilters from '@/components/SearchFilters'
+import WishlistButton from '@/components/WishlistButton'
 
 export default async function SearchPage({
   searchParams,
@@ -10,11 +12,28 @@ export default async function SearchPage({
   searchParams: Promise<SearchParamsInput>
 }) {
   const resolvedParams = await searchParams
+  const supabase = await createClient()
 
-  const [categories, { products, totalCount, totalPages, currentPage }] = await Promise.all([
+  const [
+    categories,
+    { products, totalCount, totalPages, currentPage },
+    {
+      data: { user },
+    },
+  ] = await Promise.all([
     getCategories(),
     searchProducts(resolvedParams),
+    supabase.auth.getUser(),
   ])
+
+  let wishlistedIds = new Set<string>()
+  if (user) {
+    const { data: wishlistRows } = await supabase
+      .from('wishlists')
+      .select('product_id')
+      .eq('user_id', user.id)
+    wishlistedIds = new Set((wishlistRows ?? []).map((w) => w.product_id))
+  }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 
@@ -72,39 +91,49 @@ export default async function SearchPage({
                 {products.map((product) => {
                   const imageUrl = `${supabaseUrl}/storage/v1/object/public/product-images/${product.image}`
                   return (
-                    <Link key={product.id} href={`/products/${product.slug}`} className="group block">
-                      <div className="bg-gray-100 dark:bg-gray-900 aspect-square rounded-lg mb-3 relative overflow-hidden">
-                        {product.image && (
-                          <Image
-                            src={imageUrl}
-                            alt={product.name}
-                            fill
-                            className="object-cover group-hover:scale-105 transition-transform duration-300"
-                            sizes="(max-width: 768px) 100vw, 33vw"
-                          />
-                        )}
+                    <div key={product.id} className="group relative">
+                      <div className="absolute top-3 right-3 z-10">
+                        <WishlistButton
+                          productId={product.id}
+                          initialWishlisted={wishlistedIds.has(product.id)}
+                          revalidateTarget="/search"
+                          variant="icon"
+                        />
                       </div>
-                      <p className="text-xs text-gray-600 dark:text-gray-400 uppercase">
-                        {product.category?.name}
-                      </p>
-                      <h2 className="font-medium group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                        {product.name}
-                      </h2>
-                      <div className="flex items-center justify-between mt-1">
-                        <p className="text-gray-600 dark:text-gray-400">
-                          ${(product.price / 100).toFixed(2)}
+                      <Link href={`/products/${product.slug}`} className="block">
+                        <div className="bg-gray-100 dark:bg-gray-900 aspect-square rounded-lg mb-3 relative overflow-hidden">
+                          {product.image && (
+                            <Image
+                              src={imageUrl}
+                              alt={product.name}
+                              fill
+                              className="object-cover group-hover:scale-105 transition-transform duration-300"
+                              sizes="(max-width: 768px) 100vw, 33vw"
+                            />
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 uppercase">
+                          {product.category?.name}
                         </p>
-                        {product.stock <= 0 ? (
-                          <span className="text-xs text-red-600 dark:text-red-400 font-medium">
-                            Out of stock
-                          </span>
-                        ) : product.stock <= 5 ? (
-                          <span className="text-xs text-orange-600 dark:text-orange-400 font-medium">
-                            Only {product.stock} left
-                          </span>
-                        ) : null}
-                      </div>
-                    </Link>
+                        <h2 className="font-medium group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                          {product.name}
+                        </h2>
+                        <div className="flex items-center justify-between mt-1">
+                          <p className="text-gray-600 dark:text-gray-400">
+                            ${(product.price / 100).toFixed(2)}
+                          </p>
+                          {product.stock <= 0 ? (
+                            <span className="text-xs text-red-600 dark:text-red-400 font-medium">
+                              Out of stock
+                            </span>
+                          ) : product.stock <= 5 ? (
+                            <span className="text-xs text-orange-600 dark:text-orange-400 font-medium">
+                              Only {product.stock} left
+                            </span>
+                          ) : null}
+                        </div>
+                      </Link>
+                    </div>
                   )
                 })}
               </div>

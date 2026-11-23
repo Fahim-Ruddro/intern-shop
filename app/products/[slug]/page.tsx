@@ -2,8 +2,11 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { Metadata } from 'next'
 import { notFound } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
 import { getProductBySlug, getRelatedProducts } from '@/lib/data/products'
 import AddToCartButton from '@/components/AddToCartButton'
+import WishlistButton from '@/components/WishlistButton'
+import ProductReviews, { ReviewItem } from '@/components/ProductReviews'
 
 export async function generateMetadata({
   params,
@@ -40,17 +43,77 @@ export default async function ProductPage({
     notFound()
   }
 
-  const relatedProducts = await getRelatedProducts(
-    product.category_id,
-    product.id
-  )
+  const supabase = await createClient()
+  const [
+    relatedProducts,
+    {
+      data: { user },
+    },
+    { data: rawReviews },
+  ] = await Promise.all([
+    getRelatedProducts(product.category_id, product.id),
+    supabase.auth.getUser(),
+    supabase
+      .from('product_reviews')
+      .select('id, user_id, rating, comment, created_at')
+      .eq('product_id', product.id)
+      .order('created_at', { ascending: false }),
+  ])
+
+  let wishlistedIds = new Set<string>()
+  let canReview = false
+
+  if (user) {
+    const [{ data: wishlistRows }, { data: purchase }] = await Promise.all([
+      supabase
+        .from('wishlists')
+        .select('product_id')
+        .eq('user_id', user.id),
+      supabase
+        .from('orders')
+        .select('id, order_items!inner(product_id)')
+        .eq('user_id', user.id)
+        .eq('order_items.product_id', product.id)
+        .neq('status', 'cancelled')
+        .limit(1)
+        .maybeSingle(),
+    ])
+
+    wishlistedIds = new Set((wishlistRows ?? []).map((w) => w.product_id))
+    canReview = Boolean(purchase)
+  }
+
+  const reviewerIds = [...new Set((rawReviews ?? []).map((r) => r.user_id))]
+  const nameByUserId = new Map<string, string>()
+
+  if (reviewerIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .in('id', reviewerIds)
+
+    for (const prof of profiles ?? []) {
+      if (prof.full_name?.trim()) {
+        nameByUserId.set(prof.id, prof.full_name.trim())
+      }
+    }
+  }
+
+  const reviews: ReviewItem[] = (rawReviews ?? []).map((r) => ({
+    id: r.id,
+    user_id: r.user_id,
+    rating: r.rating,
+    comment: r.comment,
+    created_at: r.created_at,
+    reviewer_name: nameByUserId.get(r.user_id) || 'Verified Customer',
+  }))
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const imageUrl = `${supabaseUrl}/storage/v1/object/public/product-images/${product.image}`
 
   return (
-    <div className="container mx-auto px-4 py-12">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+    <div className="container mx-auto px-4 sm:px-6 py-8 sm:py-12">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12">
         {/* Main Product Image Container */}
         <div className="bg-gray-100 dark:bg-gray-900 rounded-xl overflow-hidden flex items-center justify-center relative w-full aspect-square">
           {product.image ? (
@@ -72,7 +135,7 @@ export default async function ProductPage({
           <p className="text-sm text-blue-600 dark:text-blue-400 font-semibold uppercase tracking-wider mb-2">
             {product.category?.name}
           </p>
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-gray-100 mb-4">
             {product.name}
           </h1>
           <p className="text-2xl text-gray-900 dark:text-gray-100 font-medium mb-4">
@@ -95,51 +158,75 @@ export default async function ProductPage({
             )}
           </div>
 
-          <p className="text-gray-600 dark:text-gray-300 text-lg mb-8 leading-relaxed">
+          <p className="text-gray-600 dark:text-gray-300 text-base sm:text-lg mb-8 leading-relaxed">
             {product.description}
           </p>
 
-          <AddToCartButton product={product} />
+          <div className="flex flex-wrap items-stretch gap-3">
+            <div className="flex-1 min-w-50">
+              <AddToCartButton product={product} />
+            </div>
+            <WishlistButton
+              productId={product.id}
+              initialWishlisted={wishlistedIds.has(product.id)}
+              revalidateTarget={`/products/${product.slug}`}
+            />
+          </div>
         </div>
       </div>
+
+      {/* Customer Reviews (Verified Buyers Only) */}
+      <ProductReviews
+        productId={product.id}
+        slug={product.slug}
+        reviews={reviews}
+        currentUserId={user?.id ?? null}
+        canReview={canReview}
+      />
 
       {/* Related Products Section */}
       {relatedProducts.length > 0 && (
         <section
           aria-labelledby="related-products-heading"
-          className="mt-24 border-t border-gray-200 dark:border-gray-800 pt-12"
+          className="mt-16 sm:mt-24 border-t border-gray-200 dark:border-gray-800 pt-12"
         >
           <h2 id="related-products-heading" className="text-2xl font-bold mb-8">
             You might also like
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {relatedProducts.map((p) => {
               const relatedImageUrl = `${supabaseUrl}/storage/v1/object/public/product-images/${p.image}`
 
               return (
-                <Link
-                  key={p.id}
-                  href={`/products/${p.slug}`}
-                  className="group block"
-                >
-                  <div className="bg-gray-100 dark:bg-gray-900 rounded-lg mb-4 overflow-hidden relative w-full aspect-square">
-                    {p.image && (
-                      <Image
-                        src={relatedImageUrl}
-                        alt={p.name}
-                        fill
-                        className="object-cover group-hover:scale-105 transition-transform duration-300"
-                        sizes="(max-width: 768px) 100vw, 25vw"
-                      />
-                    )}
+                <div key={p.id} className="group relative">
+                  <div className="absolute top-3 right-3 z-10">
+                    <WishlistButton
+                      productId={p.id}
+                      initialWishlisted={wishlistedIds.has(p.id)}
+                      revalidateTarget={`/products/${product.slug}`}
+                      variant="icon"
+                    />
                   </div>
-                  <h3 className="font-medium text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                    {p.name}
-                  </h3>
-                  <p className="text-gray-600 dark:text-gray-400">
-                    ${(p.price / 100).toFixed(2)}
-                  </p>
-                </Link>
+                  <Link href={`/products/${p.slug}`} className="block">
+                    <div className="bg-gray-100 dark:bg-gray-900 rounded-lg mb-4 overflow-hidden relative w-full aspect-square">
+                      {p.image && (
+                        <Image
+                          src={relatedImageUrl}
+                          alt={p.name}
+                          fill
+                          className="object-cover group-hover:scale-105 transition-transform duration-300"
+                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                        />
+                      )}
+                    </div>
+                    <h3 className="font-medium text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                      {p.name}
+                    </h3>
+                    <p className="text-gray-600 dark:text-gray-400">
+                      ${(p.price / 100).toFixed(2)}
+                    </p>
+                  </Link>
+                </div>
               )
             })}
           </div>
