@@ -80,6 +80,15 @@ export default function AccountMenu({
             My Orders
           </Link>
 
+          <Link
+            role="menuitem"
+            href="/account/wishlist"
+            onClick={() => setOpen(false)}
+            className="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
+          >
+            My Wishlist
+          </Link>
+
           <form action={logout}>
             <button
               role="menuitem"
