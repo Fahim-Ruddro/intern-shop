@@ -1,13 +1,33 @@
 import Image from 'next/image'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/server'
 import { getCategories, getFeaturedProducts, getNewArrivals } from '@/lib/data/products'
+import WishlistButton from '@/components/WishlistButton'
 
 export default async function HomePage() {
-  const [categories, featuredProducts, newArrivals] = await Promise.all([
+  const supabase = await createClient()
+  const [
+    categories,
+    featuredProducts,
+    newArrivals,
+    {
+      data: { user },
+    },
+  ] = await Promise.all([
     getCategories(),
     getFeaturedProducts(),
     getNewArrivals(),
+    supabase.auth.getUser(),
   ])
+
+  let wishlistedIds = new Set<string>()
+  if (user) {
+    const { data: wishlistRows } = await supabase
+      .from('wishlists')
+      .select('product_id')
+      .eq('user_id', user.id)
+    wishlistedIds = new Set((wishlistRows ?? []).map((w) => w.product_id))
+  }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 
@@ -41,7 +61,7 @@ export default async function HomePage() {
             <Link
               key={category.id}
               href={`/categories/${category.slug}`}
-             className="flex items-center justify-center min-h-18 sm:min-h-20 border border-gray-200 dark:border-gray-800 rounded-xl px-3 py-4 text-center hover:border-black dark:hover:border-white transition-colors"
+              className="flex items-center justify-center min-h-18 sm:min-h-20 border border-gray-200 dark:border-gray-800 rounded-xl px-3 py-4 text-center hover:border-black dark:hover:border-white transition-colors"
             >
               <h3 className="font-semibold text-sm sm:text-base">{category.name}</h3>
             </Link>
@@ -64,29 +84,39 @@ export default async function HomePage() {
           {featuredProducts.map((product, index) => {
             const imageUrl = `${supabaseUrl}/storage/v1/object/public/product-images/${product.image}`
             return (
-              <Link key={product.id} href={`/products/${product.slug}`} className="group block">
-                <div className="bg-gray-100 dark:bg-gray-900 aspect-square rounded-lg mb-3 relative overflow-hidden">
-                  {product.image && (
-                    <Image
-                      src={imageUrl}
-                      alt={product.name}
-                      fill
-                      priority={index < 2}
-                      className="object-cover group-hover:scale-105 transition-transform duration-300"
-                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                    />
-                  )}
+              <div key={product.id} className="group relative">
+                <div className="absolute top-3 right-3 z-10">
+                  <WishlistButton
+                    productId={product.id}
+                    initialWishlisted={wishlistedIds.has(product.id)}
+                    revalidateTarget="/"
+                    variant="icon"
+                  />
                 </div>
-                <p className="text-xs text-gray-600 dark:text-gray-400 uppercase">
-                  {product.category?.name}
-                </p>
-                <h3 className="font-medium group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                  {product.name}
-                </h3>
-                <p className="text-gray-600 dark:text-gray-400">
-                  ${(product.price / 100).toFixed(2)}
-                </p>
-              </Link>
+                <Link href={`/products/${product.slug}`} className="block">
+                  <div className="bg-gray-100 dark:bg-gray-900 aspect-square rounded-lg mb-3 relative overflow-hidden">
+                    {product.image && (
+                      <Image
+                        src={imageUrl}
+                        alt={product.name}
+                        fill
+                        priority={index < 2}
+                        className="object-cover group-hover:scale-105 transition-transform duration-300"
+                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                      />
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 uppercase">
+                    {product.category?.name}
+                  </p>
+                  <h3 className="font-medium group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                    {product.name}
+                  </h3>
+                  <p className="text-gray-600 dark:text-gray-400">
+                    ${(product.price / 100).toFixed(2)}
+                  </p>
+                </Link>
+              </div>
             )
           })}
         </div>
@@ -107,28 +137,38 @@ export default async function HomePage() {
           {newArrivals.map((product) => {
             const imageUrl = `${supabaseUrl}/storage/v1/object/public/product-images/${product.image}`
             return (
-              <Link key={product.id} href={`/products/${product.slug}`} className="group block">
-                <div className="bg-gray-100 dark:bg-gray-900 aspect-square rounded-lg mb-3 relative overflow-hidden">
-                  {product.image && (
-                    <Image
-                      src={imageUrl}
-                      alt={product.name}
-                      fill
-                      className="object-cover group-hover:scale-105 transition-transform duration-300"
-                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                    />
-                  )}
+              <div key={product.id} className="group relative">
+                <div className="absolute top-3 right-3 z-10">
+                  <WishlistButton
+                    productId={product.id}
+                    initialWishlisted={wishlistedIds.has(product.id)}
+                    revalidateTarget="/"
+                    variant="icon"
+                  />
                 </div>
-                <p className="text-xs text-gray-600 dark:text-gray-400 uppercase">
-                  {product.category?.name}
-                </p>
-                <h3 className="font-medium group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                  {product.name}
-                </h3>
-                <p className="text-gray-600 dark:text-gray-400">
-                  ${(product.price / 100).toFixed(2)}
-                </p>
-              </Link>
+                <Link href={`/products/${product.slug}`} className="block">
+                  <div className="bg-gray-100 dark:bg-gray-900 aspect-square rounded-lg mb-3 relative overflow-hidden">
+                    {product.image && (
+                      <Image
+                        src={imageUrl}
+                        alt={product.name}
+                        fill
+                        className="object-cover group-hover:scale-105 transition-transform duration-300"
+                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                      />
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 uppercase">
+                    {product.category?.name}
+                  </p>
+                  <h3 className="font-medium group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                    {product.name}
+                  </h3>
+                  <p className="text-gray-600 dark:text-gray-400">
+                    ${(product.price / 100).toFixed(2)}
+                  </p>
+                </Link>
+              </div>
             )
           })}
         </div>

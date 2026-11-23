@@ -8,16 +8,21 @@ export default function WishlistButton({
   productId,
   initialWishlisted,
   revalidateTarget,
+  variant = 'button',
 }: {
   productId: string
   initialWishlisted: boolean
   revalidateTarget: string
+  variant?: 'button' | 'icon'
 }) {
   const [wishlisted, setWishlisted] = useState(initialWishlisted)
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
 
-  function handleToggle() {
+  function handleToggle(e: React.MouseEvent<HTMLButtonElement>) {
+    e.preventDefault()
+    e.stopPropagation()
+
     startTransition(async () => {
       const res = await toggleWishlistItem(productId, revalidateTarget)
       if (res?.requiresAuth) {
@@ -26,8 +31,30 @@ export default function WishlistButton({
       }
       if (typeof res?.wishlisted === 'boolean') {
         setWishlisted(res.wishlisted)
+        router.refresh()
       }
     })
+  }
+
+  if (variant === 'icon') {
+    return (
+      <button
+        type="button"
+        onClick={handleToggle}
+        disabled={isPending}
+        aria-pressed={wishlisted}
+        aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+        className={`w-9 h-9 rounded-full flex items-center justify-center shadow-sm border backdrop-blur-sm transition-all ${
+          wishlisted
+            ? 'bg-white/95 dark:bg-black/90 border-red-300 dark:border-red-800 text-red-600 dark:text-red-400'
+            : 'bg-white/90 dark:bg-black/80 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:text-red-600 dark:hover:text-red-400'
+        }`}
+      >
+        <span aria-hidden="true" className="text-base leading-none">
+          {wishlisted ? '♥' : '♡'}
+        </span>
+      </button>
+    )
   }
 
   return (

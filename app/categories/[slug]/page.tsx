@@ -2,7 +2,9 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { Metadata } from 'next'
 import { notFound } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
 import { getCategoryWithProducts } from '@/lib/data/products'
+import WishlistButton from '@/components/WishlistButton'
 
 export async function generateMetadata({
   params,
@@ -32,6 +34,20 @@ export default async function CategoryPage({
 
   if (!data) {
     notFound()
+  }
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  let wishlistedIds = new Set<string>()
+  if (user) {
+    const { data: wishlistRows } = await supabase
+      .from('wishlists')
+      .select('product_id')
+      .eq('user_id', user.id)
+    wishlistedIds = new Set((wishlistRows ?? []).map((w) => w.product_id))
   }
 
   const { category, products } = data
@@ -73,30 +89,40 @@ export default async function CategoryPage({
           {products.map((product) => {
             const imageUrl = `${supabaseUrl}/storage/v1/object/public/product-images/${product.image}`
             return (
-              <Link key={product.id} href={`/products/${product.slug}`} className="group block">
-                <div className="bg-gray-100 dark:bg-gray-900 aspect-square rounded-lg mb-3 relative overflow-hidden">
-                  {product.image && (
-                    <Image
-                      src={imageUrl}
-                      alt={product.name}
-                      fill
-                      className="object-cover group-hover:scale-105 transition-transform duration-300"
-                      sizes="(max-width: 768px) 100vw, 25vw"
-                    />
-                  )}
+              <div key={product.id} className="group relative">
+                <div className="absolute top-3 right-3 z-10">
+                  <WishlistButton
+                    productId={product.id}
+                    initialWishlisted={wishlistedIds.has(product.id)}
+                    revalidateTarget={`/categories/${slug}`}
+                    variant="icon"
+                  />
                 </div>
-                <h2 className="font-medium group-hover:text-blue-600 transition-colors">
-                  {product.name}
-                </h2>
-                <div className="flex items-center justify-between mt-1">
-                  <p className="text-gray-600 dark:text-gray-400">
-                    ${(product.price / 100).toFixed(2)}
-                  </p>
-                  {product.stock <= 0 && (
-                    <span className="text-xs text-red-600 font-medium">Out of stock</span>
-                  )}
-                </div>
-              </Link>
+                <Link href={`/products/${product.slug}`} className="block">
+                  <div className="bg-gray-100 dark:bg-gray-900 aspect-square rounded-lg mb-3 relative overflow-hidden">
+                    {product.image && (
+                      <Image
+                        src={imageUrl}
+                        alt={product.name}
+                        fill
+                        className="object-cover group-hover:scale-105 transition-transform duration-300"
+                        sizes="(max-width: 768px) 100vw, 25vw"
+                      />
+                    )}
+                  </div>
+                  <h2 className="font-medium group-hover:text-blue-600 transition-colors">
+                    {product.name}
+                  </h2>
+                  <div className="flex items-center justify-between mt-1">
+                    <p className="text-gray-600 dark:text-gray-400">
+                      ${(product.price / 100).toFixed(2)}
+                    </p>
+                    {product.stock <= 0 && (
+                      <span className="text-xs text-red-600 font-medium">Out of stock</span>
+                    )}
+                  </div>
+                </Link>
+              </div>
             )
           })}
         </div>
